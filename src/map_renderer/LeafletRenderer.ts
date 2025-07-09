@@ -198,25 +198,42 @@ export class LeafletRenderer implements IMapRenderer {
   updateEntitiesBatch(entities: any[]): void {
     if (!this.entityLayerGroup) return;
 
-    // Clear all existing entity markers
-    this.entityLayerGroup.clearLayers();
-    this.markers.clear();
+    // Track which entity IDs are present in this update
+    const newEntityIds = new Set<string>();
 
-    // Create all markers in one batch
+    // Update or create markers for each entity
     entities.forEach(entity => {
-      const marker = L.circleMarker([entity.position.lat, entity.position.lng], {
-        radius: 4,
-        fillColor: entity.properties?.color || '#ff0000',
-        color: '#000',
-        weight: 1,
-        opacity: 1,
-        fillOpacity: 0.8
-      });
-
-      marker.addTo(this.entityLayerGroup!);
-      // Store as any type to avoid type conflicts
-      this.markers.set(`entity_${entity.id}`, marker as any);
+      const markerId = `entity_${entity.id}`;
+      newEntityIds.add(markerId);
+      let marker = this.markers.get(markerId) as L.CircleMarker | undefined;
+      if (marker) {
+        // Update position and color if changed
+        marker.setLatLng([entity.position.lat, entity.position.lng]);
+        if (marker.options.fillColor !== (entity.properties?.color || '#ff0000')) {
+          marker.setStyle({ fillColor: entity.properties?.color || '#ff0000' });
+        }
+      } else {
+        // Create new marker
+        marker = L.circleMarker([entity.position.lat, entity.position.lng], {
+          radius: 4,
+          fillColor: entity.properties?.color || '#ff0000',
+          color: '#000',
+          weight: 1,
+          opacity: 1,
+          fillOpacity: 0.8
+        });
+        marker.addTo(this.entityLayerGroup!);
+        this.markers.set(markerId, marker as any);
+      }
     });
+
+    // Remove markers that are no longer present
+    for (const [markerId, marker] of this.markers.entries()) {
+      if (markerId.startsWith('entity_') && !newEntityIds.has(markerId)) {
+        this.entityLayerGroup.removeLayer(marker);
+        this.markers.delete(markerId);
+      }
+    }
   }
 
   // Method to clear all entity markers efficiently
