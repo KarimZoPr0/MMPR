@@ -25,6 +25,8 @@ import {
 } from '@mui/material';
 import { ExpandLess, ExpandMore, Delete, Add, PlayArrow } from '@mui/icons-material';
 import type { SelectChangeEvent } from '@mui/material';
+import { HexColorPicker } from 'react-colorful';
+import Popover from '@mui/material/Popover';
 
 function randomId() {
   return Math.random().toString(36).substr(2, 9);
@@ -42,9 +44,39 @@ const TARGET_TYPE_OPTIONS = [
   { value: 'percent', label: '%' },
 ];
 
+// Define available actions for effects
+const EFFECT_ACTIONS = [
+  {
+    value: 'setSpeed',
+    label: 'Set Speed',
+    fields: [
+      { name: 'speed', label: 'Speed (m/s)', type: 'number', min: 0, adornment: 'm/s' },
+      { name: 'duration', label: 'Duration (s)', type: 'number', min: 0, adornment: 's' },
+    ],
+  },
+  {
+    value: 'wait',
+    label: 'Wait',
+    fields: [
+      { name: 'duration', label: 'Duration (s)', type: 'number', min: 0, adornment: 's' },
+    ],
+  },
+  // Add more actions here as needed
+];
+
+// Define available fields for effects
+const EFFECT_FIELDS = [
+  { value: 'duration', label: 'Duration (s)', type: 'number', min: 0, adornment: 's' },
+  { value: 'speed', label: 'Speed (m/s)', type: 'number', min: 0, adornment: 'm/s' },
+  { value: 'range', label: 'Range (m)', type: 'number', min: 1, adornment: 'm' },
+  // Add more fields here as needed
+];
+
 const ScenarioEditor: React.FC = () => {
   const [events, setEvents] = useState<any[]>([]);
   const [openEvents, setOpenEvents] = useState<{ [id: string]: boolean }>({});
+  // Add state for color picker popover
+  const [colorPickerAnchor, setColorPickerAnchor] = useState<{ anchor: HTMLElement | null, eventId: string | null, effectId: string | null }>({ anchor: null, eventId: null, effectId: null });
 
   // Event handlers
   const handleEventChange = (id: string, key: string, value: any) => {
@@ -88,14 +120,114 @@ const ScenarioEditor: React.FC = () => {
                 ...ev.effects,
                 {
                   id: randomId(),
-                  flags: EffectFlags.HAS_DURATION | EffectFlags.HAS_RANGE | EffectFlags.HAS_SPEED,
+                  color: '#3388ff',
+                  actions: [], // sequence of { type, values }
                   targetValue: 1,
                   targetType: 'count',
-                  range: 100,
-                  duration: 10,
-                  speed: 1.5,
                 },
               ],
+            }
+          : ev
+      )
+    );
+  };
+
+  const handleAddActionToEffect = (eventId: string, effectId: string) => {
+    setEvents(events =>
+      events.map(ev =>
+        ev.id === eventId
+          ? {
+              ...ev,
+              effects: ev.effects.map((ef: any) =>
+                ef.id === effectId
+                  ? {
+                      ...ef,
+                      actions: [
+                        ...ef.actions,
+                        { type: EFFECT_ACTIONS[0].value, values: {} },
+                      ],
+                    }
+                  : ef
+              ),
+            }
+          : ev
+      )
+    );
+  };
+
+  const handleDeleteActionFromEffect = (eventId: string, effectId: string, idx: number) => {
+    setEvents(events =>
+      events.map(ev =>
+        ev.id === eventId
+          ? {
+              ...ev,
+              effects: ev.effects.map((ef: any) =>
+                ef.id === effectId
+                  ? {
+                      ...ef,
+                      actions: ef.actions.filter((_: any, i: number) => i !== idx),
+                    }
+                  : ef
+              ),
+            }
+          : ev
+      )
+    );
+  };
+
+  const handleActionTypeChange = (eventId: string, effectId: string, idx: number, newType: string) => {
+    setEvents(events =>
+      events.map(ev =>
+        ev.id === eventId
+          ? {
+              ...ev,
+              effects: ev.effects.map((ef: any) =>
+                ef.id === effectId
+                  ? {
+                      ...ef,
+                      actions: ef.actions.map((a: any, i: number) =>
+                        i === idx ? { type: newType, values: {} } : a
+                      ),
+                    }
+                  : ef
+              ),
+            }
+          : ev
+      )
+    );
+  };
+
+  const handleActionValueChange = (eventId: string, effectId: string, idx: number, field: string, value: any) => {
+    setEvents(events =>
+      events.map(ev =>
+        ev.id === eventId
+          ? {
+              ...ev,
+              effects: ev.effects.map((ef: any) =>
+                ef.id === effectId
+                  ? {
+                      ...ef,
+                      actions: ef.actions.map((a: any, i: number) =>
+                        i === idx ? { ...a, values: { ...a.values, [field]: value } } : a
+                      ),
+                    }
+                  : ef
+              ),
+            }
+          : ev
+      )
+    );
+  };
+
+  const handleEffectColorChange = (eventId: string, effectId: string, color: string) => {
+    setEvents(events =>
+      events.map(ev =>
+        ev.id === eventId
+          ? {
+              ...ev,
+              effects: ev.effects.map((ef: any) =>
+                ef.id === effectId ? { ...ef, color } : ef
+              ),
             }
           : ev
       )
@@ -128,24 +260,16 @@ const ScenarioEditor: React.FC = () => {
   };
 
   // Flag handlers
-  const handleFlagChange = (eventId: string, effectId: string, flag: EffectFlags) => {
-    setEvents(events =>
-      events.map(ev =>
-        ev.id === eventId
-          ? {
-              ...ev,
-              effects: ev.effects.map((ef: any) =>
-                ef.id === effectId ? { ...ef, flags: ef.flags ^ flag } : ef
-              ),
-            }
-          : ev
-      )
-    );
-  };
+  // The old flag handlers are removed as per the new UI.
 
   // Helper function to check if flag is set
-  const hasFlag = (effect: any, flag: EffectFlags): boolean => {
-    return (effect.flags & flag) !== 0;
+  // The old flag logic is removed as per the new UI.
+
+  const handleOpenColorPicker = (event: React.MouseEvent<HTMLElement>, eventId: string, effectId: string) => {
+    setColorPickerAnchor({ anchor: event.currentTarget, eventId, effectId });
+  };
+  const handleCloseColorPicker = () => {
+    setColorPickerAnchor({ anchor: null, eventId: null, effectId: null });
   };
 
   return (
@@ -250,9 +374,41 @@ const ScenarioEditor: React.FC = () => {
                     {event.effects && event.effects.length > 0 ? (
                       <Stack spacing={2}>
                         {event.effects.map((effect: any) => (
-                          <Paper key={effect.id} sx={{ p: 2, backgroundColor: '#fafafa' }}>
-                            <Typography variant="subtitle2" sx={{ mb: 2 }}>Effect Configuration</Typography>
-                            
+                          <Paper key={effect.id} sx={{ p: 2, backgroundColor: '#fafafa', borderLeft: `6px solid ${effect.color || '#3388ff'}` }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                              <Typography variant="subtitle2" sx={{ flex: 1 }}>Effect Configuration</Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Box
+                                  sx={{
+                                    width: 28,
+                                    height: 28,
+                                    borderRadius: '50%',
+                                    background: effect.color || '#3388ff',
+                                    border: '2px solid #fff',
+                                    boxShadow: '0 0 0 2px #ccc',
+                                    cursor: 'pointer',
+                                    transition: 'box-shadow 0.2s',
+                                    '&:hover': { boxShadow: '0 0 0 3px #888' },
+                                  }}
+                                  onClick={e => handleOpenColorPicker(e, event.id, effect.id)}
+                                  title="Pick color"
+                                />
+                                <Popover
+                                  open={Boolean(colorPickerAnchor.anchor && colorPickerAnchor.eventId === event.id && colorPickerAnchor.effectId === effect.id)}
+                                  anchorEl={colorPickerAnchor.anchor}
+                                  onClose={handleCloseColorPicker}
+                                  anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                                  transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                                  PaperProps={{ sx: { p: 2, boxShadow: 3 } }}
+                                >
+                                  <HexColorPicker
+                                    color={effect.color || '#3388ff'}
+                                    onChange={color => handleEffectColorChange(event.id, effect.id, color)}
+                                    style={{ width: 180, height: 120 }}
+                                  />
+                                </Popover>
+                              </Box>
+                            </Box>
                             {/* Target Configuration */}
                             <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
                               <TextField
@@ -274,138 +430,48 @@ const ScenarioEditor: React.FC = () => {
                                 ))}
                               </Select>
                             </Box>
-
-                            {/* Flags Configuration */}
-                            <Box sx={{ mb: 2 }}>
-                              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
-                                Field Controls:
-                              </Typography>
-                              <Stack direction="row" spacing={2} flexWrap="wrap">
-                                <FormControlLabel
-                                  control={
-                                    <Checkbox
-                                      checked={hasFlag(effect, EffectFlags.HAS_DURATION)}
-                                      onChange={() => handleFlagChange(event.id, effect.id, EffectFlags.HAS_DURATION)}
+                            {/* Field Controls (sequence) */}
+                            <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                              Action Sequence:
+                            </Typography>
+                            <Stack spacing={1}>
+                              {effect.actions && effect.actions.length > 0 && effect.actions.map((a: any, idx: number) => {
+                                const actionMeta = EFFECT_ACTIONS.find(meta => meta.value === a.type) || EFFECT_ACTIONS[0];
+                                return (
+                                  <Box key={idx} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    <Select
+                                      value={a.type}
+                                      onChange={e => handleActionTypeChange(event.id, effect.id, idx, e.target.value)}
                                       size="small"
-                                    />
-                                  }
-                                  label="Duration"
-                                  sx={{ fontSize: '0.875rem' }}
-                                />
-                                <FormControlLabel
-                                  control={
-                                    <Checkbox
-                                      checked={hasFlag(effect, EffectFlags.HAS_RANGE)}
-                                      onChange={() => handleFlagChange(event.id, effect.id, EffectFlags.HAS_RANGE)}
-                                      size="small"
-                                    />
-                                  }
-                                  label="Range"
-                                  sx={{ fontSize: '0.875rem' }}
-                                />
-                                <FormControlLabel
-                                  control={
-                                    <Checkbox
-                                      checked={hasFlag(effect, EffectFlags.HAS_SPEED)}
-                                      onChange={() => handleFlagChange(event.id, effect.id, EffectFlags.HAS_SPEED)}
-                                      size="small"
-                                    />
-                                  }
-                                  label="Speed"
-                                  sx={{ fontSize: '0.875rem' }}
-                                />
-                              </Stack>
-                            </Box>
-
-                            {/* Dynamic Fields Based on Flags */}
-                            <Grid container spacing={2}>
-                              {/* Duration Field */}
-                              <Grid item xs={12} sm={4}>
-                                {hasFlag(effect, EffectFlags.HAS_DURATION) ? (
-                                  <TextField
-                                    label="Duration (s)"
-                                    type="number"
-                                    value={effect.duration}
-                                    onChange={(e: ChangeEvent<HTMLInputElement>) => handleEffectChange(event.id, effect.id, 'duration', Number(e.target.value))}
-                                    size="small"
-                                    fullWidth
-                                    inputProps={{ min: 0 }}
-                                    InputProps={{
-                                      endAdornment: <InputAdornment position="end">s</InputAdornment>,
-                                    }}
-                                  />
-                                ) : (
-                                  <Box sx={{ 
-                                    p: 1, 
-                                    backgroundColor: '#f0f0f0', 
-                                    borderRadius: 1,
-                                    textAlign: 'center'
-                                  }}>
-                                    <Typography variant="caption" color="text.secondary">
-                                      Duration: Forever
-                                    </Typography>
+                                      sx={{ minWidth: 120 }}
+                                    >
+                                      {EFFECT_ACTIONS.map(meta => (
+                                        <MenuItem key={meta.value} value={meta.value}>{meta.label}</MenuItem>
+                                      ))}
+                                    </Select>
+                                    {actionMeta.fields.map(field => (
+                                      <TextField
+                                        key={field.name}
+                                        label={field.label}
+                                        type={field.type}
+                                        value={a.values[field.name] ?? ''}
+                                        onChange={e => handleActionValueChange(event.id, effect.id, idx, field.name, e.target.value)}
+                                        size="small"
+                                        inputProps={{ min: field.min }}
+                                        InputProps={field.adornment ? { endAdornment: <InputAdornment position="end">{field.adornment}</InputAdornment> } : {}}
+                                        sx={{ width: 120 }}
+                                      />
+                                    ))}
+                                    <IconButton onClick={() => handleDeleteActionFromEffect(event.id, effect.id, idx)} size="small" color="error">
+                                      <Delete fontSize="small" />
+                                    </IconButton>
                                   </Box>
-                                )}
-                              </Grid>
-
-                              {/* Range Field */}
-                              <Grid item xs={12} sm={4}>
-                                {hasFlag(effect, EffectFlags.HAS_RANGE) ? (
-                                  <TextField
-                                    label="Range (m)"
-                                    type="number"
-                                    value={effect.range}
-                                    onChange={(e: ChangeEvent<HTMLInputElement>) => handleEffectChange(event.id, effect.id, 'range', Number(e.target.value))}
-                                    size="small"
-                                    fullWidth
-                                    inputProps={{ min: 1 }}
-                                    InputProps={{
-                                      endAdornment: <InputAdornment position="end">m</InputAdornment>,
-                                    }}
-                                  />
-                                ) : (
-                                  <Box sx={{ 
-                                    p: 1, 
-                                    backgroundColor: '#f0f0f0', 
-                                    borderRadius: 1,
-                                    textAlign: 'center'
-                                  }}>
-                                    <Typography variant="caption" color="text.secondary">
-                                      Range: Outside
-                                    </Typography>
-                                  </Box>
-                                )}
-                              </Grid>
-
-                              {/* Speed Field */}
-                              <Grid item xs={12} sm={4}>
-                                {hasFlag(effect, EffectFlags.HAS_SPEED) ? (
-                                  <TextField
-                                    label="Speed (m/s)"
-                                    type="number"
-                                    value={effect.speed}
-                                    onChange={(e: ChangeEvent<HTMLInputElement>) => handleEffectChange(event.id, effect.id, 'speed', Number(e.target.value))}
-                                    size="small"
-                                    fullWidth
-                                    InputProps={{
-                                      endAdornment: <InputAdornment position="end">m/s</InputAdornment>,
-                                    }}
-                                  />
-                                ) : (
-                                  <Box sx={{ 
-                                    p: 1, 
-                                    backgroundColor: '#f0f0f0', 
-                                    borderRadius: 1,
-                                    textAlign: 'center'
-                                  }}>
-                                    <Typography variant="caption" color="text.secondary">
-                                      Speed: 0 m/s
-                                    </Typography>
-                                  </Box>
-                                )}
-                              </Grid>
-                            </Grid>
-
+                                );
+                              })}
+                              <Button onClick={() => handleAddActionToEffect(event.id, effect.id)} size="small" variant="outlined" startIcon={<Add />} sx={{ mt: 1, alignSelf: 'flex-start' }}>
+                                Add Action
+                              </Button>
+                            </Stack>
                             {/* Delete Effect Button */}
                             <Box sx={{ mt: 2, textAlign: 'right' }}>
                               <IconButton 
